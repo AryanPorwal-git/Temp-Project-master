@@ -277,7 +277,7 @@ export default function App() {
 
             <div className="recaptcha-container">
               <ReCAPTCHA
-                sitekey="6LeT-jorAAAAAMiAtOQfLc7BSXWv_RcQjhc7GOzL"
+                sitekey="6LdZFDsrAAAAAMXFRxbxqmaEOhDxZ2V1MSlQ-r3P"
                 onChange={token => setRecaptchaToken(token)}
                 theme="light"
                 size="normal"
