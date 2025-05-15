@@ -186,7 +186,7 @@ export default function App() {
   const handleSignOut = async () => {
     try {
       await signOut();
-      setMessage('Signed out!');
+      setSuccess('Signed out!');
       setShowPassword(false);
       setUserSession(null);
       setFormData({
@@ -198,7 +198,6 @@ export default function App() {
       setStep('auth');
       setIsLogin(true);
       setError('');
-      setSuccess('Signed out!');
     } catch (e) {
       setError('Sign out failed: ' + (e.message || e));
     }
