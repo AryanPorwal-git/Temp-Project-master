@@ -3,7 +3,7 @@ import ReCAPTCHA from 'react-google-recaptcha';
 import { Eye, EyeOff, Lock, Mail, ArrowRight } from 'lucide-react';
 import './App.css';
 import { Amplify } from 'aws-amplify';
-import { signIn, signUp, confirmSignUp, confirmSignIn } from 'aws-amplify/auth';
+import { signIn, signUp, confirmSignUp, confirmSignIn, signOut } from 'aws-amplify/auth';
 
 Amplify.configure({
   Auth: {
@@ -23,7 +23,7 @@ export default function App() {
   const [success, setSuccess] = useState('');
   const [recaptchaToken, setRecaptchaToken] = useState('');
   const [userSession, setUserSession] = useState(null);
-  const [step, setStep] = useState('auth'); // 'auth', 'confirmSignUp', 'confirmSignIn'
+  const [step, setStep] = useState('auth'); // 'auth', 'confirmSignUp'
 
   // Form fields
   const [formData, setFormData] = useState({
@@ -97,7 +97,11 @@ export default function App() {
         setSuccess('');
       }
     } catch (err) {
-      setError(err.message || 'Sign in failed. Please try again.');
+      if (err.message && err.message.includes('already a signed in user')) {
+        setError('A user is already signed in. Please sign out first.');
+      } else {
+        setError(err.message || 'Sign in failed. Please try again.');
+      }
       setSuccess('');
     } finally {
       setIsLoading(false);
@@ -175,6 +179,28 @@ export default function App() {
       setSuccess('');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Handle Sign Out
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      setMessage('Signed out!');
+      setShowPassword(false);
+      setUserSession(null);
+      setFormData({
+        email: '',
+        password: '',
+        confirmPassword: ''
+      });
+      setConfirmationCode('');
+      setStep('auth');
+      setIsLogin(true);
+      setError('');
+      setSuccess('Signed out!');
+    } catch (e) {
+      setError('Sign out failed: ' + (e.message || e));
     }
   };
 
@@ -340,6 +366,12 @@ export default function App() {
             </div>
           </form>
         )}
+
+        <div style={{ marginTop: 16 }}>
+          <button onClick={handleSignOut} className="text-link">
+            Sign Out
+          </button>
+        </div>
 
         {isLogin && step === 'auth' && (
           <div className="forgot-password">
