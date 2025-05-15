@@ -11,8 +11,8 @@ import {confirmSignIn,confirmSignUp} from 'aws-amplify/auth'
 Amplify.configure({
   Auth:{
     Cognito: {
-      userPoolId: 'YourUserPoolID',
-      userPoolClientId: 'YourClientID',
+      userPoolId: 'us-east-1_qpmIwLCMG',
+      userPoolClientId: '2g2ltrfc4ema927br7unc7qsps',
       signUpVerificationMethod: 'link',
       loginWith: {
         oauth: {
@@ -277,7 +277,7 @@ export default function App() {
 
             <div className="recaptcha-container">
               <ReCAPTCHA
-                sitekey="YOUR SITE KEY"
+                sitekey="6LeT-jorAAAAAMiAtOQfLc7BSXWv_RcQjhc7GOzL"
                 onChange={token => setRecaptchaToken(token)}
                 theme="light"
                 size="normal"
