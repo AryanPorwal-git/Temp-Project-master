@@ -30,35 +30,23 @@ export default function App() {
   const [acceptedTos, setAcceptedTos] = useState(false);
   const [tosContent, setTosContent] = useState('');
   const [showTosModal, setShowTosModal] = useState(false);
-  const [latestTosVersion, setLatestTosVersion] = useState('');
 
-  // Load ToS content and version
+  // Load ToS content
   useEffect(() => {
-    const loadTos = async () => {
-      try {
-        // Fetch ToS content from GitHub raw URL
-        const response = await fetch('https://raw.githubusercontent.com/AryanPorwal-git/my-tos/refs/heads/main/v1.md');
-        const text = await response.text();
-        setTosContent(text);
-      } catch (error) {
-        setTosContent('# Terms of Service\n\nUnable to load Terms. Please try again later.');
-        setError('Failed to load Terms of Service');
-      }
-    };
-    const loadTosVersion = async () => {
-      try {
-        // If you have an API endpoint for the latest ToS version, use it here:
-        // const response = await fetch('/api/tos-version');
-        // const version = await response.text();
-        // For now, hardcode or fetch from your API as needed
-        setLatestTosVersion('1.0'); // Replace with dynamic fetch if you have an API
-      } catch (error) {
-        console.error('Failed to fetch ToS version:', error);
-      }
-    };
-    loadTos();
-    loadTosVersion();
-  }, []);
+  const loadTos = async () => {
+    try {
+      const response = await fetch('https://raw.githubusercontent.com/AryanPorwal-git/my-tos/refs/heads/main/v1.md');
+      const text = await response.text();
+      setTosContent(text);
+    } catch (error) {
+      setTosContent('# Terms of Service\n\nUnable to load Terms. Please try again later.');
+      setError('Failed to load Terms of Service');
+    }
+  };
+  loadTos();
+}, []);
+
+
 
   // Form fields
   const [formData, setFormData] = useState({
@@ -139,11 +127,6 @@ export default function App() {
     } catch (err) {
       if (err.message && err.message.includes('already a signed in user')) {
         setError('A user is already signed in. Please sign out first.');
-      } else if (err.message && err.message.includes('TOS_VERSION_MISMATCH')) {
-        const latestVersion = err.message.split(':')[1];
-        setError('Please accept the updated Terms of Service.');
-        setShowTosModal(true);
-        setLatestTosVersion(latestVersion);
       } else {
         setError(err.message || 'Sign in failed. Please try again.');
       }
@@ -188,8 +171,7 @@ export default function App() {
         password,
         options: {
           userAttributes: {
-            email,
-            'custom:tos_version': latestTosVersion
+            email
           },
           validationData: { token: recaptchaToken }
         }
@@ -198,14 +180,7 @@ export default function App() {
       setSuccess('Sign up successful! Please enter the code sent to your email.');
       setError('');
     } catch (err) {
-      if (err.message && err.message.includes('TOS_VERSION_MISMATCH')) {
-        const latestVersion = err.message.split(':')[1];
-        setError('Please accept the updated Terms of Service.');
-        setShowTosModal(true);
-        setLatestTosVersion(latestVersion);
-      } else {
-        setError(err.message || 'Sign up failed. Please try again.');
-      }
+      setError(err.message || 'Sign up failed. Please try again.');
       setSuccess('');
     } finally {
       setIsLoading(false);
@@ -279,18 +254,19 @@ export default function App() {
 
   // ToS Modal component
   const TosModal = () => (
-    <div className="tos-modal" onClick={() => setShowTosModal(false)}>
-      <div className="tos-content" onClick={(e) => e.stopPropagation()}>
-        <button
-          className="close-button"
-          onClick={() => setShowTosModal(false)}
-        >
-          ×
-        </button>
-        <ReactMarkdown>{tosContent}</ReactMarkdown>
-      </div>
+  <div className="tos-modal" onClick={() => setShowTosModal(false)}>
+    <div className="tos-content" onClick={(e) => e.stopPropagation()}>
+      <button
+        className="close-button"
+        onClick={() => setShowTosModal(false)}
+      >
+        ×
+      </button>
+      <ReactMarkdown>{tosContent}</ReactMarkdown>
     </div>
-  );
+  </div>
+);
+
 
   return (
     <div className="auth-container">
@@ -318,7 +294,7 @@ export default function App() {
         {success && <div className="auth-message success">{success}</div>}
 
         {step === 'auth' && (
-                    <form className="auth-form" onSubmit={isLogin ? handleSignIn : handleSignUp}>
+          <form className="auth-form" onSubmit={isLogin ? handleSignIn : handleSignUp}>
             <div className="form-fields">
               <div className="input-group">
                 <label htmlFor="email" className="sr-only">
@@ -481,4 +457,5 @@ export default function App() {
     </div>
   );
 }
+
 
