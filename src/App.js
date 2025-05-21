@@ -37,7 +37,7 @@ export default function App() {
   const loadTos = async () => {
     try {
       // 1. Fetch the latest version from your API
-      const versionResponse = await fetch('https://YOUR_API_GATEWAY_URL/tos-version');
+      const versionResponse = await fetch('https://zed1joor92.execute-api.us-east-1.amazonaws.com/Aryan/tos-version');
       const latestVersion = await versionResponse.text();
 
       // 2. Load corresponding ToS content from GitHub
