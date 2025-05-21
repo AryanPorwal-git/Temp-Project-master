@@ -332,8 +332,7 @@ export default function App() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="password-toggle"
                 >
-                  {showPassword ? <EyeOff /> : <Eye />
-                }
+                  {showPassword ? <EyeOff /> : <Eye />}
                 </button>
               </div>
 
@@ -357,7 +356,7 @@ export default function App() {
                 </div>
               )}
 
-                            {/* ToS Checkbox */}
+              {/* ToS Checkbox */}
               <div className="tos-checkbox">
                 <input
                   type="checkbox"
@@ -367,7 +366,7 @@ export default function App() {
                   required
                 />
                 <label htmlFor="tos">
-                  I agree to the{' '}
+                                    I agree to the{' '}
                   <button
                     type="button"
                     className="text-link"
@@ -378,8 +377,8 @@ export default function App() {
                 </label>
               </div>
 
-              {/* reCAPTCHA */}
-              <div className="recaptcha-container">
+              {/* reCAPTCHA - with overlay if ToS not accepted */}
+              <div className={`recaptcha-container ${!acceptedTos ? 'recaptcha-disabled' : ''}`}>
                 <ReCAPTCHA
                   sitekey="6LdZFDsrAAAAAMXFRxbxqmaEOhDxZ2V1MSlQ-r3P"
                   onChange={(token) => setRecaptchaToken(token)}
@@ -456,4 +455,3 @@ export default function App() {
   );
 }
 
-              

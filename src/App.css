@@ -268,3 +268,37 @@
       font-size: 1.5rem;
     }
   }
+  /* ToS Checkbox */
+.tos-checkbox {
+  margin: 1rem 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tos-checkbox button {
+  padding: 0;
+  background: none;
+  border: none;
+  color: #2563eb;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Recaptcha Overlay */
+.recaptcha-disabled {
+  position: relative;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.recaptcha-disabled::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.5);
+  z-index: 1;
+}
