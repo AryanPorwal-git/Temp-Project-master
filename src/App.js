@@ -24,31 +24,35 @@ export default function App() {
   const [success, setSuccess] = useState('');
   const [recaptchaToken, setRecaptchaToken] = useState('');
   const [userSession, setUserSession] = useState(null);
-  const [step, setStep] = useState('auth'); // 'auth', 'confirmSignUp'
-
+  const [step, setStep] = useState('auth');
+  
   // ToS state
   const [acceptedTos, setAcceptedTos] = useState(false);
   const [tosContent, setTosContent] = useState('');
   const [showTosModal, setShowTosModal] = useState(false);
+  const [latestTosVersion, setLatestTosVersion] = useState('1.0');
 
-  // Load ToS content
+  // Load ToS content and version
   useEffect(() => {
-  const loadTos = async () => {
-    try {
-      const response = await fetch('https://raw.githubusercontent.com/AryanPorwal-git/my-tos/refs/heads/main/v1.md');
-      const text = await response.text();
-      setTosContent(text);
-    } catch (error) {
-      setTosContent('# Terms of Service\n\nUnable to load Terms. Please try again later.');
-      setError('Failed to load Terms of Service');
-    }
-  };
-  loadTos();
-}, []);
+    const loadTosContent = async () => {
+      try {
+        const response = await fetch('https://raw.githubusercontent.com/AryanPorwal-git/my-tos/main/v1.md');
+        const text = await response.text();
+        setTosContent(text);
+      } catch (error) {
+        setTosContent('# Terms of Service\n\nUnable to load Terms. Please try again later.');
+        setError('Failed to load Terms of Service');
+      }
+    };
+    
+    const loadTosVersion = async () => {
+      setLatestTosVersion('1.0');
+    };
 
+    loadTosContent();
+    loadTosVersion();
+  }, []);
 
-
-  // Form fields
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -56,7 +60,6 @@ export default function App() {
   });
   const [confirmationCode, setConfirmationCode] = useState('');
 
-  // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData({
@@ -66,7 +69,6 @@ export default function App() {
     setError('');
   };
 
-  // Handle Sign In
   const handleSignIn = async (e) => {
     if (e) e.preventDefault();
 
@@ -100,7 +102,6 @@ export default function App() {
       setUserSession({ userId });
 
       if (nextStep.signInStep === 'CONFIRM_SIGN_IN_WITH_CUSTOM_CHALLENGE') {
-        // Pass captcha token as challenge response
         const challengeResponse = recaptchaToken;
         const { isSignedIn: signedIn, nextStep: next } = await confirmSignIn({
           challengeResponse,
@@ -125,7 +126,14 @@ export default function App() {
         setSuccess('');
       }
     } catch (err) {
-      if (err.message && err.message.includes('already a signed in user')) {
+      if (err.message?.includes('TOS_VERSION_MISMATCH')) {
+        const parts = err.message.split(':');
+        const requiredVersion = parts[1] || latestTosVersion;
+        setLatestTosVersion(requiredVersion);
+        setShowTosModal(true);
+        setError('Please accept the latest Terms of Service');
+        setAcceptedTos(false);
+      } else if (err.message?.includes('already a signed in user')) {
         setError('A user is already signed in. Please sign out first.');
       } else {
         setError(err.message || 'Sign in failed. Please try again.');
@@ -137,7 +145,6 @@ export default function App() {
     }
   };
 
-  // Handle Sign Up
   const handleSignUp = async (e) => {
     if (e) e.preventDefault();
 
@@ -171,7 +178,8 @@ export default function App() {
         password,
         options: {
           userAttributes: {
-            email
+            email,
+            'custom:tos_version': latestTosVersion
           },
           validationData: { token: recaptchaToken }
         }
@@ -180,14 +188,22 @@ export default function App() {
       setSuccess('Sign up successful! Please enter the code sent to your email.');
       setError('');
     } catch (err) {
-      setError(err.message || 'Sign up failed. Please try again.');
+      if (err.message?.includes('TOS_VERSION_MISMATCH')) {
+        const parts = err.message.split(':');
+        const requiredVersion = parts[1] || latestTosVersion;
+        setLatestTosVersion(requiredVersion);
+        setShowTosModal(true);
+        setError('Please accept the latest Terms of Service');
+        setAcceptedTos(false);
+      } else {
+        setError(err.message || 'Sign up failed. Please try again.');
+      }
       setSuccess('');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle Confirm Sign Up
   const handleConfirmSignUp = async (e) => {
     if (e) e.preventDefault();
 
@@ -215,7 +231,6 @@ export default function App() {
     }
   };
 
-  // Handle Sign Out
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -237,7 +252,6 @@ export default function App() {
     }
   };
 
-  // Reset form when switching between login and signup
   const toggleAuthMode = () => {
     setIsLogin(!isLogin);
     setError('');
@@ -252,21 +266,20 @@ export default function App() {
     setAcceptedTos(false);
   };
 
-  // ToS Modal component
   const TosModal = () => (
-  <div className="tos-modal" onClick={() => setShowTosModal(false)}>
-    <div className="tos-content" onClick={(e) => e.stopPropagation()}>
-      <button
-        className="close-button"
-        onClick={() => setShowTosModal(false)}
-      >
-        ×
-      </button>
-      <ReactMarkdown>{tosContent}</ReactMarkdown>
+    <div className="tos-modal" onClick={() => setShowTosModal(false)}>
+      <div className="tos-content" onClick={(e) => e.stopPropagation()}>
+        <button
+          className="close-button"
+          onClick={() => setShowTosModal(false)}
+        >
+          ×
+        </button>
+        <ReactMarkdown>{tosContent}</ReactMarkdown>
+        <div className="tos-version">Version {latestTosVersion}</div>
+      </div>
     </div>
-  </div>
-);
-
+  );
 
   return (
     <div className="auth-container">
@@ -359,7 +372,6 @@ export default function App() {
                 </div>
               )}
 
-              {/* ToS Checkbox */}
               <div className="tos-checkbox">
                 <input
                   type="checkbox"
@@ -375,12 +387,11 @@ export default function App() {
                     className="text-link"
                     onClick={() => setShowTosModal(true)}
                   >
-                    Terms of Service
+                    Terms of Service (v{latestTosVersion})
                   </button>
                 </label>
               </div>
 
-              {/* reCAPTCHA - with overlay if ToS not accepted */}
               <div className={`recaptcha-container ${!acceptedTos ? 'recaptcha-disabled' : ''}`}>
                 <ReCAPTCHA
                   sitekey="6LdZFDsrAAAAAMXFRxbxqmaEOhDxZ2V1MSlQ-r3P"
@@ -457,5 +468,3 @@ export default function App() {
     </div>
   );
 }
-
-
