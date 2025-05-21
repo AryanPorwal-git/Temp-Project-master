@@ -34,33 +34,25 @@ export default function App() {
 
   // Load ToS content and version
   useEffect(() => {
-  const loadTos = async () => {
+  const loadTosContent = async () => {
     try {
-      // Fetch from your API Gateway endpoint
-      const response = await fetch('https://kl1jeh5yia.execute-api.us-east-1.amazonaws.com/tos');
-      if (!response.ok) throw new Error('Failed to fetch ToS');
-      
-      const data = await response.json();
-      
-      setTosContent(data.content);
-      setLatestTosVersion(data.version);
-      
-      // Check if user needs to accept new ToS
-      const currentUser = await Auth.currentAuthenticatedUser().catch(() => null);
-      if (currentUser) {
-        const userVersion = currentUser.attributes?.['custom:tos_version'];
-        setShowTosModal(userVersion !== data.version);
-      }
+      const response = await fetch('https://raw.githubusercontent.com/AryanPorwal-git/my-tos/main/v1.md');
+      const text = await response.text();
+      setTosContent(text);
     } catch (error) {
       setTosContent('# Terms of Service\n\nUnable to load Terms. Please try again later.');
       setError('Failed to load Terms of Service');
-      console.error('ToS loading error:', error);
     }
   };
   
-  loadTos();
-}, []);
+  const loadTosVersion = async () => {
+    setLatestTosVersion('1.0');
+  };
 
+  loadTosContent();
+  loadTosVersion();
+}, []);
+;
 
   const [formData, setFormData] = useState({
     email: '',
@@ -276,36 +268,19 @@ export default function App() {
   };
 
   const TosModal = () => (
-  <div className="tos-modal" onClick={() => setShowTosModal(false)}>
-    <div className="tos-content" onClick={(e) => e.stopPropagation()}>
-      <button
-        className="close-button"
-        onClick={() => setShowTosModal(false)}
-      >
-        ×
-      </button>
-      <ReactMarkdown>{tosContent}</ReactMarkdown>
-      <div className="tos-version">Version {latestTosVersion}</div>
-      <button 
-        className="accept-button"
-        onClick={async () => {
-          try {
-            const user = await Auth.currentAuthenticatedUser();
-            await Auth.updateUserAttributes(user, {
-              'custom:tos_version': latestTosVersion
-            });
-            setShowTosModal(false);
-          } catch (error) {
-            console.error('Error accepting ToS:', error);
-          }
-        }}
-      >
-        I Accept
-      </button>
+    <div className="tos-modal" onClick={() => setShowTosModal(false)}>
+      <div className="tos-content" onClick={(e) => e.stopPropagation()}>
+        <button
+          className="close-button"
+          onClick={() => setShowTosModal(false)}
+        >
+          ×
+        </button>
+        <ReactMarkdown>{tosContent}</ReactMarkdown>
+        <div className="tos-version">Version {latestTosVersion}</div>
+      </div>
     </div>
-  </div>
-);
-
+  );
 
   return (
     <div className="auth-container">
