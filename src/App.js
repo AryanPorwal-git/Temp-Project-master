@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { Eye, EyeOff, Lock, Mail, ArrowRight } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import './App.css';
 import { Amplify } from 'aws-amplify';
 import { signIn, signUp, confirmSignUp, confirmSignIn, signOut } from 'aws-amplify/auth';
@@ -25,6 +26,26 @@ export default function App() {
   const [userSession, setUserSession] = useState(null);
   const [step, setStep] = useState('auth'); // 'auth', 'confirmSignUp'
 
+  // ToS state
+  const [acceptedTos, setAcceptedTos] = useState(false);
+  const [tosContent, setTosContent] = useState('');
+  const [showTosModal, setShowTosModal] = useState(false);
+
+  // Load ToS content
+  useEffect(() => {
+    const loadTos = async () => {
+      try {
+        const response = await fetch('/tos/v1.md');
+        const text = await response.text();
+        setTosContent(text);
+      } catch (error) {
+        console.error('Error loading ToS:', error);
+        setError('Failed to load Terms of Service');
+      }
+    };
+    loadTos();
+  }, []);
+
   // Form fields
   const [formData, setFormData] = useState({
     email: '',
@@ -46,6 +67,11 @@ export default function App() {
   // Handle Sign In
   const handleSignIn = async (e) => {
     if (e) e.preventDefault();
+
+    if (!acceptedTos) {
+      setError('You must accept the Terms of Service');
+      return;
+    }
 
     if (!recaptchaToken) {
       setError('Please complete the reCAPTCHA verification');
@@ -112,6 +138,11 @@ export default function App() {
   // Handle Sign Up
   const handleSignUp = async (e) => {
     if (e) e.preventDefault();
+
+    if (!acceptedTos) {
+      setError('You must accept the Terms of Service');
+      return;
+    }
 
     if (!recaptchaToken) {
       setError('Please complete the reCAPTCHA verification');
@@ -198,6 +229,7 @@ export default function App() {
       setStep('auth');
       setIsLogin(true);
       setError('');
+      setAcceptedTos(false);
     } catch (e) {
       setError('Sign out failed: ' + (e.message || e));
     }
@@ -215,10 +247,27 @@ export default function App() {
       confirmPassword: ''
     });
     setConfirmationCode('');
+    setAcceptedTos(false);
   };
+
+  // ToS Modal component
+  const TosModal = () => (
+    <div className="tos-modal" onClick={() => setShowTosModal(false)}>
+      <div className="tos-content" onClick={(e) => e.stopPropagation()}>
+        <button
+          className="close-button"
+          onClick={() => setShowTosModal(false)}
+        >
+          ×
+        </button>
+        <ReactMarkdown>{tosContent}</ReactMarkdown>
+      </div>
+    </div>
+  );
 
   return (
     <div className="auth-container">
+      {showTosModal && <TosModal />}
       <div className="auth-card">
         <div className="auth-header">
           <h2>
@@ -283,7 +332,8 @@ export default function App() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="password-toggle"
                 >
-                  {showPassword ? <EyeOff /> : <Eye />}
+                  {showPassword ? <EyeOff /> : <Eye />
+                }
                 </button>
               </div>
 
@@ -307,10 +357,32 @@ export default function App() {
                 </div>
               )}
 
+                            {/* ToS Checkbox */}
+              <div className="tos-checkbox">
+                <input
+                  type="checkbox"
+                  id="tos"
+                  checked={acceptedTos}
+                  onChange={(e) => setAcceptedTos(e.target.checked)}
+                  required
+                />
+                <label htmlFor="tos">
+                  I agree to the{' '}
+                  <button
+                    type="button"
+                    className="text-link"
+                    onClick={() => setShowTosModal(true)}
+                  >
+                    Terms of Service
+                  </button>
+                </label>
+              </div>
+
+              {/* reCAPTCHA */}
               <div className="recaptcha-container">
                 <ReCAPTCHA
                   sitekey="6LdZFDsrAAAAAMXFRxbxqmaEOhDxZ2V1MSlQ-r3P"
-                  onChange={token => setRecaptchaToken(token)}
+                  onChange={(token) => setRecaptchaToken(token)}
                   theme="light"
                   size="normal"
                 />
@@ -349,7 +421,7 @@ export default function App() {
                   type="text"
                   required
                   value={confirmationCode}
-                  onChange={e => setConfirmationCode(e.target.value)}
+                  onChange={(e) => setConfirmationCode(e.target.value)}
                   placeholder="Enter the code sent to your email"
                 />
               </div>
@@ -383,3 +455,5 @@ export default function App() {
     </div>
   );
 }
+
+              
