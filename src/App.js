@@ -33,18 +33,20 @@ export default function App() {
 
   // Load ToS content
   useEffect(() => {
-    const loadTos = async () => {
-      try {
-        const response = await fetch('/tos/v1.md');
-        const text = await response.text();
-        setTosContent(text);
-      } catch (error) {
-        console.error('Error loading ToS:', error);
-        setError('Failed to load Terms of Service');
-      }
-    };
-    loadTos();
-  }, []);
+  const loadTos = async () => {
+    try {
+      const response = await fetch('/tos/v1.md');
+      if (!response.ok) throw new Error('Failed to fetch ToS');
+      const text = await response.text();
+      setTosContent(text);
+    } catch (error) {
+      setTosContent('# Terms of Service\n\nUnable to load Terms. Please try again later.');
+      setError('Failed to load Terms of Service');
+    }
+  };
+  loadTos();
+}, []);
+
 
   // Form fields
   const [formData, setFormData] = useState({
@@ -252,18 +254,19 @@ export default function App() {
 
   // ToS Modal component
   const TosModal = () => (
-    <div className="tos-modal" onClick={() => setShowTosModal(false)}>
-      <div className="tos-content" onClick={(e) => e.stopPropagation()}>
-        <button
-          className="close-button"
-          onClick={() => setShowTosModal(false)}
-        >
-          ×
-        </button>
-        <ReactMarkdown>{tosContent}</ReactMarkdown>
-      </div>
+  <div className="tos-modal" onClick={() => setShowTosModal(false)}>
+    <div className="tos-content" onClick={(e) => e.stopPropagation()}>
+      <button
+        className="close-button"
+        onClick={() => setShowTosModal(false)}
+      >
+        ×
+      </button>
+      <ReactMarkdown>{tosContent}</ReactMarkdown>
     </div>
-  );
+  </div>
+);
+
 
   return (
     <div className="auth-container">
@@ -366,7 +369,7 @@ export default function App() {
                   required
                 />
                 <label htmlFor="tos">
-                                    I agree to the{' '}
+                  I agree to the{' '}
                   <button
                     type="button"
                     className="text-link"
@@ -454,4 +457,5 @@ export default function App() {
     </div>
   );
 }
+
 
