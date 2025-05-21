@@ -225,10 +225,12 @@ body {
     background: white;
     padding: 2rem;
     max-width: 800px;
+    width: 90%;
     max-height: 80vh;
     overflow-y: auto;
     border-radius: var(--border-radius);
     position: relative;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
 .tos-content .close-button {
@@ -240,6 +242,11 @@ body {
     font-size: 1.5rem;
     cursor: pointer;
     color: var(--text-color);
+    transition: color var(--transition-speed);
+}
+
+.tos-content .close-button:hover {
+    color: var(--primary-color);
 }
 
 .tos-version {
@@ -247,6 +254,30 @@ body {
     font-size: 0.875rem;
     color: var(--light-text-color);
     text-align: right;
+}
+
+/* Accept Button */
+.accept-button {
+    display: block;
+    width: 100%;
+    margin-top: 1.5rem;
+    padding: 0.75rem 1.5rem;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: var(--border-radius);
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color var(--transition-speed);
+}
+
+.accept-button:hover {
+    background-color: var(--primary-hover-color);
+}
+
+.accept-button:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--focus-ring-color);
 }
 
 /* reCAPTCHA */
@@ -344,6 +375,25 @@ body {
     margin-top: 1rem;
 }
 
+/* Scrollbar styling for ToS content */
+.tos-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.tos-content::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: var(--border-radius);
+}
+
+.tos-content::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: var(--border-radius);
+}
+
+.tos-content::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
 /* Responsive */
 @media (max-width: 640px) {
     .auth-card {
@@ -355,7 +405,11 @@ body {
     }
     
     .tos-content {
-        width: 95%;
         padding: 1.5rem;
+    }
+    
+    .accept-button {
+        font-size: 0.875rem;
+        padding: 0.5rem 1rem;
     }
 }
