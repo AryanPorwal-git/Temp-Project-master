@@ -34,26 +34,23 @@ export default function App() {
 
   // Load ToS content and version
   useEffect(() => {
-  const loadTos = async () => {
+  const loadTosContent = async () => {
     try {
-      // 1. Fetch latest version from your backend API
-      const versionResponse = await fetch('https://w1l0i261k7.execute-api.us-east-1.amazonaws.com/tos-version');
-      const latestVersion = await versionResponse.text();
-
-      // 2. Load corresponding ToS content
-      const contentResponse = await fetch(
-        `https://raw.githubusercontent.com/AryanPorwal-git/my-tos/main/v${latestVersion}.md`
-      );
-      const text = await contentResponse.text();
-
+      const response = await fetch('https://raw.githubusercontent.com/AryanPorwal-git/my-tos/main/v1.md');
+      const text = await response.text();
       setTosContent(text);
-      setLatestTosVersion(latestVersion);
     } catch (error) {
       setTosContent('# Terms of Service\n\nUnable to load Terms. Please try again later.');
       setError('Failed to load Terms of Service');
     }
   };
-  loadTos();
+  
+  const loadTosVersion = async () => {
+    setLatestTosVersion('1.0');
+  };
+
+  loadTosContent();
+  loadTosVersion();
 }, []);
 ;
 
