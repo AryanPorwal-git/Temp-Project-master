@@ -35,8 +35,7 @@ export default function App() {
   useEffect(() => {
   const loadTos = async () => {
     try {
-      const response = await fetch('/tos/v1.md');
-      if (!response.ok) throw new Error('Failed to fetch ToS');
+      const response = await fetch('https://raw.githubusercontent.com/AryanPorwal-git/my-tos/refs/heads/main/v1.md');
       const text = await response.text();
       setTosContent(text);
     } catch (error) {
@@ -46,6 +45,7 @@ export default function App() {
   };
   loadTos();
 }, []);
+
 
 
   // Form fields
