@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { Eye, EyeOff, Lock, Mail, ArrowRight } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { createHash } from 'crypto-browserify';
 import './App.css';
 import { Amplify } from 'aws-amplify';
 import { signIn, signUp, confirmSignUp, confirmSignIn, signOut } from 'aws-amplify/auth';
@@ -26,35 +25,35 @@ export default function App() {
   const [recaptchaToken, setRecaptchaToken] = useState('');
   const [userSession, setUserSession] = useState(null);
   const [step, setStep] = useState('auth');
-  const [tosChallenge, setTosChallenge] = useState(null);
   
   // ToS state
   const [acceptedTos, setAcceptedTos] = useState(false);
   const [tosContent, setTosContent] = useState('');
   const [showTosModal, setShowTosModal] = useState(false);
-  const [tosSha, setTosSha] = useState('');
+  const [latestTosVersion, setLatestTosVersion] = useState('1.0');
 
-  // Load ToS content directly from S3
+  // Load ToS content and version
   useEffect(() => {
-    const loadTos = async () => {
-      try {
-        const response = await fetch('https://your-tos-bucket.s3.amazonaws.com/tos.md');
-        const content = await response.text();
-        setTosContent(content);
-        
-        // Compute SHA-256 hash
-        const hash = createHash('sha256').update(content).digest('hex');
-        setTosSha(hash);
-      } catch (error) {
-        setTosContent('# Terms of Service\n\nUnable to load Terms. Please try again later.');
-        setError('Failed to load Terms of Service');
-      }
-    };
-    
-    loadTos();
-  }, []);
+  const loadTosContent = async () => {
+    try {
+      const response = await fetch('https://raw.githubusercontent.com/AryanPorwal-git/my-tos/main/v1.md');
+      const text = await response.text();
+      setTosContent(text);
+    } catch (error) {
+      setTosContent('# Terms of Service\n\nUnable to load Terms. Please try again later.');
+      setError('Failed to load Terms of Service');
+    }
+  };
+  
+  const loadTosVersion = async () => {
+    setLatestTosVersion('1.0');
+  };
 
-  // Form fields
+  loadTosContent();
+  loadTosVersion();
+}, []);
+;
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -62,7 +61,6 @@ export default function App() {
   });
   const [confirmationCode, setConfirmationCode] = useState('');
 
-  // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData({
@@ -72,11 +70,15 @@ export default function App() {
     setError('');
   };
 
-  // Handle Sign In
   const handleSignIn = async (e) => {
     if (e) e.preventDefault();
 
-    if (!recaptchaToken && step !== 'tos') {
+    if (!acceptedTos) {
+      setError('You must accept the Terms of Service');
+      return;
+    }
+
+    if (!recaptchaToken) {
       setError('Please complete the reCAPTCHA verification');
       return;
     }
@@ -101,26 +103,19 @@ export default function App() {
       setUserSession({ userId });
 
       if (nextStep.signInStep === 'CONFIRM_SIGN_IN_WITH_CUSTOM_CHALLENGE') {
-        const challengeName = nextStep.challengeName;
-        
-        if (challengeName === 'CUSTOM_TOS_CHALLENGE') {
-          setTosChallenge(nextStep);
-          setStep('tos');
+        const challengeResponse = recaptchaToken;
+        const { isSignedIn: signedIn, nextStep: next } = await confirmSignIn({
+          challengeResponse,
+          userId
+        });
+        if (signedIn && next.signInStep === 'DONE') {
+          setSuccess('Sign in successful!');
           setError('');
-          setSuccess('Please review and accept the updated Terms of Service');
         } else {
-          const { isSignedIn: signedIn } = await confirmSignIn({
-            challengeResponse: recaptchaToken
-          });
-          
-          if (signedIn) {
-            setSuccess('Sign in successful!');
-            setError('');
-          } else {
-            setError('reCAPTCHA verification failed');
-          }
+          setError('reCAPTCHA failed');
+          setSuccess('');
         }
-      } else if (isSignedIn) {
+      } else if (isSignedIn || nextStep.signInStep === 'DONE') {
         setSuccess('Sign in successful!');
         setError('');
       } else if (nextStep.signInStep === 'CONFIRM_SIGN_UP') {
@@ -128,14 +123,19 @@ export default function App() {
         setSuccess('Please confirm your sign up with the code sent to your email.');
         setError('');
       } else {
-        setError('Unexpected authentication step');
+        setError('Unexpected next step: ' + nextStep.signInStep);
+        setSuccess('');
       }
     } catch (err) {
-      if (err.message?.includes('already a signed in user')) {
+      if (err.message?.includes('TOS_VERSION_MISMATCH')) {
+        const parts = err.message.split(':');
+        const requiredVersion = parts[1] || latestTosVersion;
+        setLatestTosVersion(requiredVersion);
+        setShowTosModal(true);
+        setError('Please accept the latest Terms of Service');
+        setAcceptedTos(false);
+      } else if (err.message?.includes('already a signed in user')) {
         setError('A user is already signed in. Please sign out first.');
-      } else if (err.message?.includes('TOS_SHA_MISMATCH')) {
-        setStep('tos');
-        setError('Please accept the updated Terms of Service');
       } else {
         setError(err.message || 'Sign in failed. Please try again.');
       }
@@ -145,40 +145,7 @@ export default function App() {
       setRecaptchaToken('');
     }
   };
-    // Handle ToS Acceptance
-  const handleTosAccept = async () => {
-    if (!acceptedTos) {
-      setError('You must accept the Terms of Service');
-      return;
-    }
 
-    setIsLoading(true);
-    
-    try {
-      const { isSignedIn, nextStep } = await confirmSignIn({
-        challengeResponse: tosSha,
-        options: {
-          authFlowType: 'CUSTOM_WITHOUT_SRP'
-        }
-      });
-
-      if (nextStep?.challengeName === 'CUSTOM_CHALLENGE') {
-        setStep('auth');
-        setSuccess('Terms accepted. Please complete CAPTCHA verification.');
-        setTosChallenge(null);
-      } else if (isSignedIn) {
-        setSuccess('Sign in successful!');
-        setError('');
-        setStep('auth');
-      }
-    } catch (err) {
-      setError(err.message || 'Failed to accept Terms of Service');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Handle Sign Up
   const handleSignUp = async (e) => {
     if (e) e.preventDefault();
 
@@ -213,7 +180,7 @@ export default function App() {
         options: {
           userAttributes: {
             email,
-            'custom:tosValidity': tosSha
+            'custom:tos_version': latestTosVersion
           },
           validationData: { token: recaptchaToken }
         }
@@ -222,19 +189,27 @@ export default function App() {
       setSuccess('Sign up successful! Please enter the code sent to your email.');
       setError('');
     } catch (err) {
-      setError(err.message || 'Sign up failed. Please try again.');
+      if (err.message?.includes('TOS_VERSION_MISMATCH')) {
+        const parts = err.message.split(':');
+        const requiredVersion = parts[1] || latestTosVersion;
+        setLatestTosVersion(requiredVersion);
+        setShowTosModal(true);
+        setError('Please accept the latest Terms of Service');
+        setAcceptedTos(false);
+      } else {
+        setError(err.message || 'Sign up failed. Please try again.');
+      }
       setSuccess('');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle Confirm Sign Up
   const handleConfirmSignUp = async (e) => {
     if (e) e.preventDefault();
 
     if (!confirmationCode) {
-      setError('Please enter the confirmation code');
+      setError('Please enter the confirmation code sent to your email.');
       return;
     }
 
@@ -251,34 +226,47 @@ export default function App() {
       setIsLogin(true);
     } catch (err) {
       setError(err.message || 'Confirmation failed. Please try again.');
+      setSuccess('');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle Sign Out
   const handleSignOut = async () => {
     try {
       await signOut();
-      setSuccess('Signed out successfully!');
+      setSuccess('Signed out!');
+      setShowPassword(false);
       setUserSession(null);
-      setFormData({ email: '', password: '', confirmPassword: '' });
+      setFormData({
+        email: '',
+        password: '',
+        confirmPassword: ''
+      });
       setConfirmationCode('');
       setStep('auth');
-    } catch (error) {
-      setError('Sign out failed: ' + error.message);
+      setIsLogin(true);
+      setError('');
+      setAcceptedTos(false);
+    } catch (e) {
+      setError('Sign out failed: ' + (e.message || e));
     }
   };
 
-  // Toggle between login/signup
   const toggleAuthMode = () => {
     setIsLogin(!isLogin);
     setError('');
     setSuccess('');
-    setFormData({ email: '', password: '', confirmPassword: '' });
+    setStep('auth');
+    setFormData({
+      email: '',
+      password: '',
+      confirmPassword: ''
+    });
+    setConfirmationCode('');
+    setAcceptedTos(false);
   };
 
-  // ToS Modal component
   const TosModal = () => (
     <div className="tos-modal" onClick={() => setShowTosModal(false)}>
       <div className="tos-content" onClick={(e) => e.stopPropagation()}>
@@ -289,40 +277,7 @@ export default function App() {
           ×
         </button>
         <ReactMarkdown>{tosContent}</ReactMarkdown>
-        <div className="tos-sha">Content Hash: {tosSha.substring(0, 12)}...</div>
-      </div>
-    </div>
-  );
-
-  // Render ToS challenge screen
-  const renderTosChallenge = () => (
-    <div className="auth-card">
-      <div className="auth-header">
-        <h2>Updated Terms of Service</h2>
-        <p>Please review and accept the updated terms to continue</p>
-      </div>
-      
-      <div className="tos-container">
-        <ReactMarkdown>{tosContent}</ReactMarkdown>
-      </div>
-
-      <div className="tos-acceptance">
-        <label>
-          <input
-            type="checkbox"
-            checked={acceptedTos}
-            onChange={(e) => setAcceptedTos(e.target.checked)}
-          />
-          I accept the Terms of Service
-        </label>
-        
-        <button
-          onClick={handleTosAccept}
-          disabled={!acceptedTos || isLoading}
-          className="submit-button"
-        >
-          {isLoading ? 'Processing...' : 'Continue'}
-        </button>
+        <div className="tos-version">Version {latestTosVersion}</div>
       </div>
     </div>
   );
@@ -330,162 +285,187 @@ export default function App() {
   return (
     <div className="auth-container">
       {showTosModal && <TosModal />}
-      
-      {step === 'tos' ? renderTosChallenge() : (
-        <div className="auth-card">
-          <div className="auth-header">
-            <h2>
-              {step === 'confirmSignUp' 
-                ? 'Confirm Email' 
-                : isLogin 
-                  ? 'Sign In' 
-                  : 'Create Account'}
-            </h2>
-            {step === 'auth' && (
-              <p>
-                {isLogin ? "Don't have an account? " : "Already have an account? "}
-                <button onClick={toggleAuthMode} className="text-link">
-                  {isLogin ? 'Sign up' : 'Sign in'}
-                </button>
-              </p>
-            )}
-          </div>
+      <div className="auth-card">
+        <div className="auth-header">
+          <h2>
+            {step === 'auth'
+              ? isLogin
+                ? 'Sign in to your account'
+                : 'Create a new account'
+              : 'Confirm your email'}
+          </h2>
+          {step === 'auth' && (
+            <p>
+              {isLogin ? "Don't have an account? " : "Already have an account? "}
+              <button onClick={toggleAuthMode} className="text-link">
+                {isLogin ? 'Sign up' : 'Sign in'}
+              </button>
+            </p>
+          )}
+        </div>
 
-          {error && <div className="auth-message error">{error}</div>}
-          {success && <div className="auth-message success">{success}</div>}
+        {error && <div className="auth-message error">{error}</div>}
+        {success && <div className="auth-message success">{success}</div>}
 
-          {step === 'confirmSignUp' ? (
-            <form className="auth-form" onSubmit={handleConfirmSignUp}>
+        {step === 'auth' && (
+          <form className="auth-form" onSubmit={isLogin ? handleSignIn : handleSignUp}>
+            <div className="form-fields">
               <div className="input-group">
+                <label htmlFor="email" className="sr-only">
+                  Email
+                </label>
+                <div className="input-icon">
+                  <Mail />
+                </div>
                 <input
-                  type="text"
-                  placeholder="Confirmation Code"
-                  value={confirmationCode}
-                  onChange={(e) => setConfirmationCode(e.target.value)}
+                  id="email"
+                  name="email"
+                  type="email"
+                  required
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  placeholder="Email"
                 />
               </div>
-              <button type="submit" className="submit-button">
-                {isLoading ? 'Verifying...' : 'Confirm'}
-              </button>
-            </form>
-          ) : (
-            <form className="auth-form" onSubmit={isLogin ? handleSignIn : handleSignUp}>
-              <div className="form-fields">
-                <div className="input-group">
-                  <div className="input-icon">
-                    <Mail />
-                  </div>
-                  <input
-                    type="email"
-                    placeholder="Email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
 
+              <div className="input-group">
+                <label htmlFor="password" className="sr-only">
+                  Password
+                </label>
+                <div className="input-icon">
+                  <Lock />
+                </div>
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  placeholder="Password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="password-toggle"
+                >
+                  {showPassword ? <EyeOff /> : <Eye />}
+                </button>
+              </div>
+
+              {!isLogin && (
                 <div className="input-group">
+                  <label htmlFor="confirmPassword" className="sr-only">
+                    Confirm Password
+                  </label>
                   <div className="input-icon">
                     <Lock />
                   </div>
                   <input
+                    id="confirmPassword"
+                    name="confirmPassword"
                     type={showPassword ? 'text' : 'password'}
-                    placeholder="Password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleInputChange}
                     required
+                    value={formData.confirmPassword}
+                    onChange={handleInputChange}
+                    placeholder="Confirm Password"
                   />
+                </div>
+              )}
+
+              <div className="tos-checkbox">
+                <input
+                  type="checkbox"
+                  id="tos"
+                  checked={acceptedTos}
+                  onChange={(e) => setAcceptedTos(e.target.checked)}
+                  required
+                />
+                <label htmlFor="tos">
+                  I agree to the{' '}
                   <button
                     type="button"
-                    className="password-toggle"
-                    onClick={() => setShowPassword(!showPassword)}
+                    className="text-link"
+                    onClick={() => setShowTosModal(true)}
                   >
-                    {showPassword ? <EyeOff /> : <Eye />}
+                    Terms of Service (v{latestTosVersion})
                   </button>
-                </div>
-
-                {!isLogin && (
-                  <div className="input-group">
-                    <div className="input-icon">
-                      <Lock />
-                    </div>
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="Confirm Password"
-                      name="confirmPassword"
-                      value={formData.confirmPassword}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                )}
-
-                <div className="tos-checkbox">
-                  <input
-                    type="checkbox"
-                    id="tos"
-                    checked={acceptedTos}
-                    onChange={(e) => setAcceptedTos(e.target.checked)}
-                    required
-                  />
-                  <label htmlFor="tos">
-                    I agree to the{' '}
-                    <button
-                      type="button"
-                      className="text-link"
-                      onClick={() => setShowTosModal(true)}
-                    >
-                      Terms of Service
-                    </button>
-                  </label>
-                </div>
-
-                <div className={`recaptcha-container ${!acceptedTos ? 'recaptcha-disabled' : ''}`}>
-                  <ReCAPTCHA
-                    sitekey="6LdZFDsrAAAAAMXFRxbxqmaEOhDxZ2V1MSlQ-r3P"
-                    onChange={(token) => setRecaptchaToken(token)}
-                    theme="light"
-                    size="normal"
-                  />
-                </div>
+                </label>
               </div>
 
+              <div className={`recaptcha-container ${!acceptedTos ? 'recaptcha-disabled' : ''}`}>
+                <ReCAPTCHA
+                  sitekey="6LdZFDsrAAAAAMXFRxbxqmaEOhDxZ2V1MSlQ-r3P"
+                  onChange={(token) => setRecaptchaToken(token)}
+                  theme="light"
+                  size="normal"
+                />
+              </div>
+            </div>
+
+            <div className="form-actions">
               <button
                 type="submit"
+                disabled={isLoading}
                 className="submit-button"
-                disabled={isLoading || (!isLogin && !acceptedTos)}
               >
                 {isLoading ? (
                   <span>Processing...</span>
                 ) : (
                   <>
-                    <span>{isLogin ? 'Sign In' : 'Sign Up'}</span>
+                    <span>{isLogin ? 'Sign in' : 'Sign up'}</span>
                     <ArrowRight className="button-icon" />
                   </>
                 )}
               </button>
-            </form>
-          )}
+            </div>
+          </form>
+        )}
 
-          {step === 'auth' && isLogin && (
-            <div className="forgot-password">
-              <button className="text-link">
-                Forgot your password?
+        {step === 'confirmSignUp' && (
+          <form className="auth-form" onSubmit={handleConfirmSignUp}>
+            <div className="form-fields">
+              <div className="input-group">
+                <label htmlFor="confirmationCode" className="sr-only">
+                  Confirmation Code
+                </label>
+                <input
+                  id="confirmationCode"
+                  name="confirmationCode"
+                  type="text"
+                  required
+                  value={confirmationCode}
+                  onChange={(e) => setConfirmationCode(e.target.value)}
+                  placeholder="Enter the code sent to your email"
+                />
+              </div>
+            </div>
+            <div className="form-actions">
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="submit-button"
+              >
+                {isLoading ? <span>Verifying...</span> : <span>Confirm</span>}
               </button>
             </div>
-          )}
-        </div>
-      )}
-      
-      {userSession && (
-        <div className="sign-out-container">
+          </form>
+        )}
+
+        <div style={{ marginTop: 16 }}>
           <button onClick={handleSignOut} className="text-link">
             Sign Out
           </button>
         </div>
-      )}
+
+        {isLogin && step === 'auth' && (
+          <div className="forgot-password">
+            <button type="button" className="text-link">
+              Forgot your password?
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
